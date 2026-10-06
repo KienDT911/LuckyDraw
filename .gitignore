@@ -1,0 +1,12 @@
+node_modules
+dist
+*.local
+.DS_Store
+# Never commit real customer data
+data/
+*.xlsx
+!public/*.xlsx
+# Cloudflare local dev state and secrets
+.wrangler/
+.dev.vars
+*.tsbuildinfo

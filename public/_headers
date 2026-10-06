@@ -1,0 +1,6 @@
+# Cloudflare Pages: headers for the static site (the /api functions set their own).
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
