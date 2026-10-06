@@ -6,7 +6,7 @@
  * the images they use).
  *
  * NEVER SHARED (stays in this browser): the customer list, winners, and everything derived from the imported
- * file (its name, column names, column mapping, code characters).
+ * file (its name, its header row, the code characters).
  *
  * This module is used by both the browser and the Cloudflare function, so the same whitelist is enforced on
  * both sides. It must stay free of DOM and app imports.

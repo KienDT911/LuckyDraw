@@ -3,7 +3,7 @@ import { db } from '../../shared/db';
 import { useT } from '../../shared/i18n';
 import { useCampaign } from '../../shared/store';
 import type { ParsedSheet } from '../import/parse';
-import { buildCustomers, type ImportReport } from '../import/process';
+import { buildCustomers, cleanRow, type ImportReport } from '../import/process';
 
 /**
  * Shows what the file contains (A = code, B = name, C = phone) and what will happen, before anything is
@@ -88,8 +88,8 @@ export function ImportDialog({
                 {preview.map((cells, i) => (
                   <tr key={i}>
                     <td className="col-letter">{i + firstRow}</td>
-                    {[0, 1, 2].map((c) => (
-                      <td key={c}>{String(cells[c] ?? '')}</td>
+                    {cleanRow(cells, codeLength).map((v, c) => (
+                      <td key={c}>{v}</td>
                     ))}
                   </tr>
                 ))}

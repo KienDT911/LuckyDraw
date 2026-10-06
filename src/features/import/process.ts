@@ -24,6 +24,11 @@ function codeText(v: CellValue | undefined, codeLength: number): string {
   return typeof v === 'number' && /^\d+$/.test(s) && s.length < codeLength ? s.padStart(codeLength, '0') : s;
 }
 
+/** A row as it will be imported (code repaired, phone normalised), for previews. */
+export function cleanRow(cells: CellValue[], codeLength: number): [string, string, string] {
+  return [codeText(cells[0], codeLength), cellText(cells[1]).trim(), normalizePhone(cellText(cells[2]))];
+}
+
 /**
  * Turns the rows of the customer file (A = code, B = name, C = phone) into the draw pool.
  * Codes must be exactly `codeLength` digits; repeated codes keep their first row; customers who already won

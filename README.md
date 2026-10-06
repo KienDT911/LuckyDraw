@@ -10,7 +10,7 @@ who opens the site sees the same design. **Customer lists and winners never leav
 |---|---|
 | Campaign name, screen size, code length, phone display, confetti / confirmation options | Customer list (names, phones, codes) |
 | Theme, spin-screen and results-board layouts, text, shapes, uploaded images | Winners |
-| Prizes (name, reward, number of winners, spin/pause seconds) | Imported file name, column names and mapping |
+| Prizes (name, reward, number of winners, spin/pause seconds) | Imported file name and its header row |
 
 The whitelist lives in `src/shared/sharedDesign.ts` and is enforced twice: by the app before uploading and
 by the server before storing.
@@ -94,12 +94,24 @@ All design work happens here; the live spin and results screens have no editing 
 - Each row (code) is one entry, so a customer with more codes has more chances.
 - Random selection uses `crypto.getRandomValues` with rejection sampling (no modulo bias).
 
-### Import format
+### Customer file format
 
-Any `.xlsx`, `.xls` or `.csv` whose first row is a header. You map the **name**, **phone** and **code**
-columns after choosing the file; other columns are kept and included in the "remaining list" export.
-Excel numbers are repaired: phones get their leading `0` back, numeric codes are zero-padded.
-See `public/sample-customers.csv` (fake data) for an example.
+Excel (`.xlsx`, `.xls`) or CSV, one entry per row, always in this column order:
+
+| A | B | C |
+|---|---|---|
+| Code — exactly 13 digits | Name | Phone |
+
+- A header row is optional; it is recognised automatically (its column A has no digits) and kept for exports.
+- Before anything is replaced, **Kiểm tra file** shows a preview and the counts: valid entries, repeated codes
+  (skipped, first one kept), invalid codes (not exactly 13 digits, listed with their Excel row numbers) and
+  customers who already won (skipped).
+- Excel cells stored as numbers are repaired: phones get their leading `0` back, codes get their leading zeros back.
+- **Danh sách còn lại** (`.xlsx` / `.csv`) is the same file without every customer who has won — all of their
+  rows, since a customer is identified by phone — in the same A/B/C layout with the same header row, so it can be
+  imported again. Codes and phones are written as text so Excel keeps all digits and the leading `0`.
+- **Danh sách trúng thưởng** lists winners in the same A/B/C order, followed by prize, reward, number and time.
+- `public/sample-customers.xlsx` (fake data, downloadable from the app) shows the layout.
 
 ### Data safety
 
