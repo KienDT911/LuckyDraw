@@ -16,7 +16,7 @@ export interface Theme {
   confetti: string[];
   spinBg: ThemeBackground;
   resultsBg: ThemeBackground;
-  reels: Omit<ReelsStyle, 'idleChar'>;
+  reels: Omit<ReelsStyle, 'idleChar' | 'shape'>;
   prizeBar: Omit<PrizeBarStyle, 'maxVisible' | 'showCount'>;
   spinButton: ThemeButton;
   resultsButton: ThemeButton;

@@ -1701,12 +1701,42 @@ button.sync-badge {
 /* Reels */
 .reels {
   display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 100%;
 }
 .reel-box {
   position: relative;
   flex: none;
+}
+.reel-rim {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.reel-masked .reel-rim,
+.reel-masked .reel-inner,
+.reel-mask-shadow > span {
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+}
+.reel-box-shadow.reel-masked {
+  box-shadow: none;
+}
+.reel-mask-shadow {
+  position: absolute;
+  inset: 0;
+  transform: translateY(9px);
+  filter: blur(7px);
+  pointer-events: none;
+}
+.reel-mask-shadow > span {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
 }
 .reel-box-shadow {
   box-shadow:

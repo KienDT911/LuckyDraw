@@ -93,7 +93,7 @@ export function buildSpinScene(th: Theme): SpinScene {
   return {
     background: themeBackground(th.spinBg),
     components: {
-      reels: comp(frame(150, 420, 1620, 200), { ...th.reels, idleChar: '8' }),
+      reels: comp(frame(150, 420, 1620, 200), { ...th.reels, idleChar: '8', shape: 'rect' }),
       prizeBar: comp(frame(330, 690, 1260, 84), { ...th.prizeBar, maxVisible: 3, showCount: true }),
       spinButton: comp(frame(790, 826, 340, 92), { ...th.spinButton, label: '' }),
       resultsButton: comp(frame(830, 948, 260, 58), { ...th.resultsButton, label: '' }),
@@ -159,7 +159,7 @@ export function applyTheme(c: Campaign, th: Theme): void {
   c.scenes.spin.background = { ...themeBackground(th.spinBg), fit: c.scenes.spin.background.fit };
   c.scenes.results.background = { ...themeBackground(th.resultsBg), fit: c.scenes.results.background.fit };
 
-  spin.reels.style = { ...th.reels, idleChar: spin.reels.style.idleChar };
+  spin.reels.style = { ...th.reels, idleChar: spin.reels.style.idleChar, shape: spin.reels.style.shape };
   spin.prizeBar.style = { ...th.prizeBar, maxVisible: spin.prizeBar.style.maxVisible, showCount: spin.prizeBar.style.showCount };
   spin.spinButton.style = { ...th.spinButton, label: spin.spinButton.style.label };
   spin.resultsButton.style = { ...th.resultsButton, label: spin.resultsButton.style.label };

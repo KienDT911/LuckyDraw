@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, type CSSProperties 
 import { fill, metal } from '../../shared/format';
 import { randomChar } from '../../shared/rng';
 import type { ReelsStyle } from '../../types';
+import { REEL_SHAPES, shapeMask } from './reelShapes';
 
 export interface ReelRowHandle {
   /** Spins every reel and resolves when the last (right-most) one has stopped on `code`. */
@@ -97,8 +98,12 @@ export const ReelRow = forwardRef<
   const reels = useRef<(CharReelHandle | null)[]>([]);
   const rowRef = useRef<HTMLDivElement>(null);
 
-  const boxW = Math.max(4, (width - style.gap * (count - 1)) / count);
-  const fontSize = Math.min(height, boxW * 1.3) * style.fontScale;
+  const shape = REEL_SHAPES[style.shape] ?? REEL_SHAPES.rect;
+  const slotW = Math.max(4, (width - style.gap * (count - 1)) / count);
+  // Shapes with fixed proportions take the largest box of that shape that fits the slot.
+  const boxW = shape.aspect ? Math.min(slotW, height * shape.aspect) : slotW;
+  const boxH = shape.aspect ? boxW / shape.aspect : height;
+  const fontSize = Math.min(boxH, boxW * 1.3) * style.fontScale * shape.glyph;
   const chars = code ? [...code] : [];
 
   useImperativeHandle(ref, () => ({
@@ -121,44 +126,62 @@ export const ReelRow = forwardRef<
   }));
 
   const bw = style.borderWidth;
+  const mask = shapeMask(style.shape);
+  const radius = (inset: number) =>
+    shape.radius === 'ellipse'
+      ? '50%'
+      : shape.radius === 'round'
+        ? Math.min(boxW, boxH) / 2
+        : shape.radius === 'style'
+          ? Math.max(0, style.radius - inset)
+          : undefined;
+  const maskStyle: CSSProperties = mask ? { maskImage: mask, WebkitMaskImage: mask } : {};
   return (
     <div ref={rowRef} className="reels" style={{ gap: style.gap }}>
       {Array.from({ length: count }, (_, i) => (
-        // Two nested shells: the outer one is the (metallic) rim, the inner one the face.
+        // The box carries the shadow, the rim is the (metallic) border and the inner shell is the face.
         <div
           key={i}
-          className={style.shadow ? 'reel-box reel-box-shadow' : 'reel-box'}
-          style={
-            {
-              width: boxW,
-              height,
-              padding: bw,
-              borderRadius: style.radius,
-              background: bw ? metal(style.borderColor, style.borderColor2) : 'transparent',
-              '--i': i,
-            } as CSSProperties
-          }
+          className={`reel-box${style.shadow ? ' reel-box-shadow' : ''}${mask ? ' reel-masked' : ''}`}
+          style={{ width: boxW, height: boxH, borderRadius: radius(0), '--i': i } as CSSProperties}
         >
+          {mask && style.shadow && (
+            // A soft copy of the shape behind it: box-shadow cannot follow a mask.
+            <span className="reel-mask-shadow">
+              <span style={maskStyle} />
+            </span>
+          )}
           <div
-            className="reel-inner"
+            className="reel-rim"
             style={{
-              borderRadius: Math.max(0, style.radius - bw),
-              background: fill(style.bg, style.bg2),
-              color: style.color,
-              fontFamily: style.font,
-              fontSize,
-              textShadow: style.glow ? `0 0 0.3em ${style.glow}, 0 0 0.08em ${style.glow}` : undefined,
+              ...maskStyle,
+              padding: bw,
+              borderRadius: radius(0),
+              background: bw ? metal(style.borderColor, style.borderColor2) : 'transparent',
             }}
           >
-            <CharReel
-              ref={(r) => {
-                reels.current[i] = r;
+            <div
+              className="reel-inner"
+              style={{
+                ...maskStyle,
+                borderRadius: radius(bw),
+                background: fill(style.bg, style.bg2),
+                color: style.color,
+                fontFamily: style.font,
+                fontSize,
+                textShadow: style.glow ? `0 0 0.3em ${style.glow}, 0 0 0.08em ${style.glow}` : undefined,
               }}
-              char={chars[i] ?? style.idleChar}
-              cellHeight={height - bw * 2}
-              charset={charset}
-            />
-            <span className="reel-shine" />
+            >
+              <CharReel
+                ref={(r) => {
+                  reels.current[i] = r;
+                }}
+                char={chars[i] ?? style.idleChar}
+                cellHeight={boxH - bw * 2}
+                charset={charset}
+              />
+              <span className="reel-shine" />
+            </div>
           </div>
         </div>
       ))}

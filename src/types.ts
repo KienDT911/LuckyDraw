@@ -40,7 +40,22 @@ export interface Background {
 
 // ---- System components (layers 2 and 3) ----
 
+/** Outline of each number box. `rect` and `square` use `radius` for their corners. */
+export type ReelShape =
+  | 'rect'
+  | 'square'
+  | 'circle'
+  | 'oval'
+  | 'pill'
+  | 'hexagon'
+  | 'diamond'
+  | 'star'
+  | 'heart'
+  | 'cloud'
+  | 'shield';
+
 export interface ReelsStyle {
+  shape: ReelShape;
   bg: string;
   /** Gradient end ('' = solid). */
   bg2: string;

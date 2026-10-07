@@ -4,7 +4,7 @@ import { lockApp, PasscodeGate, useGateEnabled } from './features/gate/PasscodeG
 import { ResultsPage } from './features/results/ResultsPage';
 import { SetupPage } from './features/setup/SetupPage';
 import { SpinPage } from './features/spin/SpinPage';
-import { discardChanges, saveDesign, signInAgain, startSync, useCloud } from './shared/cloud';
+import { saveDesign, signInAgain, startSync, useCloud } from './shared/cloud';
 import { useLocale, useT, type MessageKey } from './shared/i18n';
 import { useCampaign } from './shared/store';
 import { ConfirmHost, ToastHost } from './shared/ui/feedback';
@@ -41,20 +41,17 @@ function SyncBadge() {
     );
   }
   if (dirty && !offline && status !== 'expired') {
+    // The Save button lives in the designer; elsewhere (prizes, settings) this badge saves.
     return (
-      <div className="save-group">
-        <span className="sync-badge warn" title={t(remoteNewer ? 'cloudRemoteNewer' : 'cloudUnsavedHint')}>
-          <Icon name={remoteNewer ? 'refresh' : 'pencil'} size={14} />
-          <span>{t(remoteNewer ? 'cloudRemoteNewerBadge' : status === 'offline' ? 'cloudOffline' : 'cloudUnsaved')}</span>
-        </span>
-        <button className="btn btn-sm" onClick={() => void discardChanges()} disabled={busy}>
-          {t('cloudDiscard')}
-        </button>
-        <button className="btn btn-sm btn-primary" onClick={() => void saveDesign()} disabled={busy} title={t('cloudSaveHint')}>
-          <Icon name="save" size={15} />
-          <span>{busy ? t('cloudSaving') : t('cloudSave')}</span>
-        </button>
-      </div>
+      <button
+        className="sync-badge warn"
+        title={`${t(remoteNewer ? 'cloudRemoteNewer' : 'cloudUnsavedHint')} (Ctrl+S)`}
+        onClick={() => void saveDesign()}
+        disabled={busy}
+      >
+        <Icon name={busy ? 'refresh' : 'save'} size={14} />
+        <span>{busy ? t('cloudSaving') : `${t(remoteNewer ? 'cloudRemoteNewerBadge' : 'cloudUnsaved')} · ${t('cloudSave')}`}</span>
+      </button>
     );
   }
   const state = offline ? 'offline' : status;

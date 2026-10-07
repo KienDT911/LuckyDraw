@@ -5,6 +5,7 @@ import { useCampaign } from '../../shared/store';
 import { ColorInput, Field, NumberInput, OptionalColorInput, Select, TextInput, Toggle } from '../../shared/ui/fields';
 import { Icon, type IconName } from '../../shared/ui/Icon';
 import type { Frame, PageId, SceneElement, SystemComponent } from '../../types';
+import { REEL_SHAPE_IDS } from '../spin/reelShapes';
 import { useEditor } from './editorStore';
 import {
   addImage,
@@ -51,6 +52,15 @@ const BUTTON_FIELDS: FieldDesc[] = [
 
 const COMPONENT_FIELDS: Record<string, FieldDesc[]> = {
   reels: [
+    {
+      key: 'shape',
+      label: 'boxShape',
+      kind: 'select',
+      options: REEL_SHAPE_IDS.map((id) => ({
+        value: id,
+        labelKey: `boxShape${id.charAt(0).toUpperCase()}${id.slice(1)}` as MessageKey,
+      })),
+    },
     { key: 'bg', label: 'fill', kind: 'color' },
     { key: 'bg2', label: 'gradientEnd', kind: 'optColor' },
     { key: 'color', label: 'textColor', kind: 'color' },

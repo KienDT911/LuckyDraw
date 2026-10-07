@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useCloud } from '../../shared/cloud';
 import { useT } from '../../shared/i18n';
 import { SceneCanvas } from '../../shared/stage/SceneCanvas';
 import { Stage } from '../../shared/stage/Stage';
 import { useCampaign, winnersOf } from '../../shared/store';
 import { Icon } from '../../shared/ui/Icon';
+import { SaveControls } from '../../shared/ui/SaveControls';
 import type { PageId } from '../../types';
 import { EditorPanel } from '../editor/EditorPanel';
 import { useEditor } from '../editor/editorStore';
@@ -22,6 +24,7 @@ export function DesignStudio() {
   const t = useT();
   const campaign = useCampaign((s) => s.campaign);
   const winners = useCampaign((s) => s.winners);
+  const cloud = useCloud((s) => s.mode === 'cloud');
   const { selectedId, select, snapshot } = useEditor();
   const [page, setPage] = useState<PageId>('spin');
   const rootRef = useRef<HTMLDivElement>(null);
@@ -93,7 +96,7 @@ export function DesignStudio() {
                 {t('pageResults')}
               </button>
             </div>
-            {usingSample && <span className="designer-note">{t('previewSample')}</span>}
+            {cloud ? <SaveControls /> : usingSample && <span className="designer-note">{t('previewSample')}</span>}
             <span className="designer-spacer" />
             <Link className="btn btn-sm" to={page === 'spin' ? '/spin' : '/results'}>
               {t('openScreen')}
