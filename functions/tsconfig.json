@@ -12,5 +12,5 @@
     "noUnusedParameters": true,
     "types": ["@cloudflare/workers-types"]
   },
-  "include": [".", "../server", "../src/shared/sharedDesign.ts"]
+  "include": [".", "../server", "../worker", "../src/shared/sharedDesign.ts"]
 }

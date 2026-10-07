@@ -3,10 +3,10 @@
 Lucky draw for promotion campaigns. Import customers from Excel/CSV, configure prizes, spin slot-reel style
 for a 13-character code, and export the winners board as PNG/PDF.
 
-Hosted on **Cloudflare Pages**, the **design is shared**: it is saved to the cloud automatically and everyone
-who opens the site sees the same design. **Customer lists and winners never leave the drawing computer.**
+Hosted on **Cloudflare Workers**, the **design is shared**: press **Lưu** (Save) and everyone who opens the site
+sees the same design. **Customer lists and winners never leave the drawing computer.**
 
-| Stored in the cloud (shared, autosaved) | Stays in this browser only |
+| Stored in the cloud (shared when you press Save) | Stays in this browser only |
 |---|---|
 | Campaign name, screen size, code length, phone display, confetti / confirmation options | Customer list (names, phones, codes) |
 | Theme, spin-screen and results-board layouts, text, shapes, uploaded images | Winners |
@@ -17,8 +17,8 @@ by the server before storing.
 
 ## Deploy to Cloudflare
 
-Step-by-step guide: **[CLOUDFLARE_SETUP.md](CLOUDFLARE_SETUP.md)** (GitHub → Cloudflare Pages → D1 database →
-`APP_PASSCODE` secret → redeploy). Everything fits in Cloudflare's free plan.
+Step-by-step guide: **[CLOUDFLARE_SETUP.md](CLOUDFLARE_SETUP.md)** (GitHub → Cloudflare Worker from the repository →
+`APP_PASSCODE` secret). `wrangler.jsonc` holds the rest (build, D1 database `DB`). Everything fits in the free plan.
 
 ## Run locally
 
@@ -42,7 +42,7 @@ Set your test passcode in `.dev.vars`, then open http://127.0.0.1:8788.
 ## Passcode
 
 - **On Cloudflare:** the passcode is the `APP_PASSCODE` secret, checked by the server. Change it in the
-  Cloudflare dashboard and redeploy; everyone is signed out. Sessions last 7 days per browser.
+  Cloudflare dashboard; everyone is signed out. Sessions last 7 days per browser.
 - **Local mode only:** a cosmetic gate. Generate a new hash with `npm run passcode -- my-new-code` and paste it
   into `src/config.ts` (set it to `''` to disable).
 
@@ -76,13 +76,16 @@ All design work happens here; the live spin and results screens have no editing 
 
 ### Sharing the design (cloud)
 
-- Changes are saved about a second after you stop editing (top bar: “Đã lưu lên đám mây”).
-- Other open computers pick up changes within ~15 seconds (and immediately when their tab is focused).
-  A running draw is never changed; the update is applied after it.
-- If two people edit at the same moment, the second one is asked: **Giữ bản của tôi** (keep mine, replaces
-  theirs) or **Dùng bản mới nhất** (use the latest). Closing the question keeps the other person's work.
-- No connection? Editing and drawing keep working; the badge shows “Mất kết nối” and saving resumes
-  automatically. If the server is unreachable when the page opens, the passcode last used on that computer
+- Edits (design, prizes, campaign settings) are a draft on your computer: the top bar shows **Chưa lưu** with
+  **Lưu** and **Bỏ thay đổi**. Press **Lưu** (or Ctrl+S) to share them; the top bar then shows “Đã lưu lên đám mây”.
+  Closing the tab with unsaved changes asks first.
+- Other open computers pick up a save within ~15 seconds (and immediately when their tab is focused); a computer
+  opened later loads it. A running draw is never changed; the update is applied after it.
+- While you have unsaved changes, someone else's newer save is not loaded over them (top bar: **Có bản mới hơn**).
+  Pressing **Lưu** then asks: **Giữ bản của tôi** (replaces theirs) or **Dùng bản của họ**. Closing the question
+  keeps the other person's work.
+- No connection? Editing and drawing keep working; the badge shows “Mất kết nối” and **Lưu** works again once
+  the connection is back. If the server is unreachable when the page opens, the passcode last used on that computer
   unlocks it offline.
 - A prize that already has winners on a computer is never removed there, even if someone deletes it elsewhere.
 
@@ -124,7 +127,8 @@ data and leaves the shared design alone.
 ## Project structure
 
 ```
-functions/api/ ............. Cloudflare Pages Functions: session (sign-in), design, assets/[id]
+functions/api/ ............. API handlers: session (sign-in), design, assets/[id]
+worker/index.ts ............ Cloudflare Workers entry, routes /api/* to functions/ (config: wrangler.jsonc)
 server/lib.ts .............. auth (signed cookie), D1 schema, helpers
 src/
   app shell, routes ........ App.tsx, main.tsx, config.ts, styles.css

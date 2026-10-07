@@ -2,7 +2,10 @@
  * Cloud sync of the shared design (Cloudflare Pages Functions + D1, see /functions).
  *
  * Only the whitelisted design (see sharedDesign.ts) ever leaves the browser. Customer lists and winners stay in
- * IndexedDB on the drawing computer. Without a backend (plain `vite dev`, static hosting) the app runs in
+ * IndexedDB on the drawing computer.
+ *
+ * Design changes are a draft in this browser until someone presses Save (`saveDesign`); only then do they become
+ * the shared design that every other computer loads (on opening, and by polling every 15 s). Without a backend (plain `vite dev`, static hosting) the app runs in
  * "local" mode exactly as before.
  */
 import { create } from 'zustand';
@@ -30,6 +33,10 @@ interface CloudState {
   offline: boolean;
   status: SyncStatus;
   savedAt: number | null;
+  /** This browser has design changes that are not saved to the cloud yet (press Save to share them). */
+  dirty: boolean;
+  /** Someone saved a newer design while this browser has unsaved changes. */
+  remoteNewer: boolean;
 }
 
 export const useCloud = create<CloudState>(() => ({
@@ -40,10 +47,11 @@ export const useCloud = create<CloudState>(() => ({
   offline: false,
   status: 'idle',
   savedAt: null,
+  dirty: false,
+  remoteNewer: false,
 }));
 
 const POLL_MS = 15_000;
-const PUSH_DELAY_MS = 1_200;
 const RECONNECT_MS = 30_000;
 const CLOUD_FLAG = 'ld-cloud';
 const OFFLINE_KEY = 'ld-offline-key';
@@ -188,11 +196,9 @@ let started = false;
 let baseVersion = 0;
 /** The shared design at `baseVersion`; anything else locally is an unsaved edit. */
 let syncedJson = '';
-let pushTimer: ReturnType<typeof setTimeout> | undefined;
 let pushing = false;
-let pushQueued = false;
 let resolving = false;
-let backoff = 0;
+let dirtyTimer: ReturnType<typeof setTimeout> | undefined;
 
 const currentJson = () => JSON.stringify(toSharedDesign(useCampaign.getState().campaign));
 const isDirty = () => currentJson() !== syncedJson;
@@ -202,10 +208,18 @@ function setStatus(status: SyncStatus) {
   useCloud.setState(status === 'saved' ? { status, savedAt: Date.now() } : { status });
 }
 
+function refreshDirty() {
+  clearTimeout(dirtyTimer);
+  const dirty = started && syncedJson !== '' && isDirty();
+  if (useCloud.getState().dirty !== dirty) useCloud.setState({ dirty });
+}
+
 async function remember(version: number, json: string) {
   baseVersion = version;
   syncedJson = json;
+  useCloud.setState({ remoteNewer: false });
   await saveSyncMeta({ version, json });
+  refreshDirty();
 }
 
 /** Merges the shared design into this browser's campaign; local-only fields (imported file etc.) are kept. */
@@ -284,8 +298,8 @@ async function applyRemote(remote: RemoteDesign, announce: boolean) {
   if (announce && onSetupPage()) toast(t('cloudUpdated'), 'info');
 }
 
-async function resolveConflict(remote: RemoteDesign) {
-  if (resolving) return;
+async function resolveConflict(remote: RemoteDesign): Promise<boolean> {
+  if (resolving) return false;
   resolving = true;
   setStatus('conflict');
   try {
@@ -294,30 +308,22 @@ async function resolveConflict(remote: RemoteDesign) {
     if (keepMine) {
       baseVersion = remote.version;
       resolving = false;
-      await push();
-    } else {
-      await applyRemote(remote, false);
+      return await push();
     }
+    await applyRemote(remote, false);
+    return false;
   } finally {
     resolving = false;
   }
 }
 
-function schedulePush(delay = PUSH_DELAY_MS) {
-  clearTimeout(pushTimer);
-  pushTimer = setTimeout(() => void push(), delay);
-}
-
-async function push(): Promise<void> {
-  if (resolving || useCloud.getState().status === 'expired') return;
-  if (pushing) {
-    pushQueued = true;
-    return;
-  }
+/** Uploads this browser's design as the new shared version. Returns true when it is saved. */
+async function push(): Promise<boolean> {
+  if (resolving || pushing || useCloud.getState().status === 'expired') return false;
   const json = currentJson();
   if (baseVersion > 0 && json === syncedJson) {
-    if (useCloud.getState().status !== 'saved') setStatus('saved');
-    return;
+    setStatus('saved');
+    return true;
   }
   pushing = true;
   setStatus('saving');
@@ -328,33 +334,50 @@ async function push(): Promise<void> {
       body: `{"baseVersion":${baseVersion},"design":${json}}`,
     });
     if (res.status === 409) {
+      // Someone saved first: ask whether to replace their version or take it.
       const latest = (await res.json()) as RemoteDesign;
       pushing = false;
-      await resolveConflict(latest);
-      return;
+      return await resolveConflict(latest);
     }
     if (res.status === 401) {
       onExpired();
-      return;
+      return false;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const body = (await res.json()) as { version: number; missingAssets?: string[] };
     await remember(body.version, json);
-    backoff = 0;
     // Images the server does not have yet (e.g. added while offline).
     for (const id of body.missingAssets ?? []) await uploadAsset(id);
     setStatus('saved');
+    return true;
   } catch {
     setStatus('offline');
-    backoff = Math.min(60_000, backoff ? backoff * 2 : 5_000);
-    schedulePush(backoff);
+    return false;
   } finally {
     pushing = false;
-    if (pushQueued) {
-      pushQueued = false;
-      schedulePush(300);
-    }
   }
+}
+
+/** The Save button: shares this browser's design with everyone. */
+export async function saveDesign(): Promise<void> {
+  if (!started || pushing || resolving) return;
+  if (useCloud.getState().status === 'expired') {
+    toast(t('cloudExpired'), 'error', { label: t('signInAgain'), run: () => void signInAgain() });
+    return;
+  }
+  if (await push()) toast(t('cloudSavedToast'), 'success');
+  else if (useCloud.getState().status === 'offline') toast(t('cloudSaveFailed'), 'error');
+}
+
+/** Throws away unsaved changes and goes back to the shared design (the newest one if someone saved since). */
+export async function discardChanges(): Promise<void> {
+  if (!started || !syncedJson || !isDirty()) return;
+  if (!(await confirmDialog(t('cloudDiscardConfirm'), { okLabel: t('cloudDiscard'), danger: true }))) return;
+  const { campaign, winners } = useCampaign.getState();
+  useCampaign.getState().replace(mergeDesign(campaign, JSON.parse(syncedJson) as SharedDesign, winners));
+  useEditor.setState({ past: [], future: [] });
+  refreshDirty();
+  await poll();
 }
 
 async function poll(): Promise<void> {
@@ -367,21 +390,26 @@ async function poll(): Promise<void> {
     return;
   }
   if (remote === 'unchanged') {
-    if (useCloud.getState().status === 'offline' && !isDirty()) setStatus('saved');
+    if (useCloud.getState().status === 'offline') setStatus('saved');
     void syncAssets();
     return;
   }
   if (!remote.design) {
     // The cloud is empty (e.g. a new database): publish this browser's design.
     baseVersion = 0;
-    schedulePush(0);
+    await push();
     return;
   }
   if (remote.version === baseVersion) return;
   // Never change the stage in the middle of a draw; the next poll picks it up.
   if (useSpinUi.getState().running) return;
-  if (isDirty()) await resolveConflict(remote);
-  else await applyRemote(remote, true);
+  if (baseVersion === 0 || !isDirty()) {
+    await applyRemote(remote, true);
+  } else if (!useCloud.getState().remoteNewer) {
+    // Do not interrupt someone who is editing; pressing Save asks what to do.
+    useCloud.setState({ remoteNewer: true });
+    if (onSetupPage()) toast(t('cloudRemoteNewer'), 'info');
+  }
 }
 
 async function initialSync(): Promise<void> {
@@ -389,7 +417,6 @@ async function initialSync(): Promise<void> {
   if (remote === 'expired' || remote === 'unchanged') return;
   if (remote === null) {
     setStatus('offline');
-    schedulePush(5_000);
     return;
   }
   if (!remote.design) {
@@ -399,8 +426,9 @@ async function initialSync(): Promise<void> {
     return;
   }
   if (remote.version === baseVersion) {
-    if (isDirty()) await push();
-    else setStatus('saved');
+    // Changes left unsaved last time stay a draft until Save is pressed.
+    setStatus('saved');
+    refreshDirty();
     void syncAssets();
     return;
   }
@@ -419,16 +447,22 @@ export async function startSync(): Promise<void> {
 
   assetEvents.added = (id) => void uploadAsset(id);
   useCampaign.subscribe((s, prev) => {
-    if (s.campaign !== prev.campaign) schedulePush();
+    if (s.campaign === prev.campaign) return;
+    // Comparing the whole design is cheap, but not on every pixel of a drag.
+    clearTimeout(dirtyTimer);
+    dirtyTimer = setTimeout(refreshDirty, 250);
   });
-  window.addEventListener('online', () => {
-    schedulePush(0);
-    void poll();
-  });
+  window.addEventListener('online', () => void poll());
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') void poll();
+  });
+  // Warn before closing the tab with changes nobody else can see yet.
+  window.addEventListener('beforeunload', (e) => {
+    refreshDirty();
+    if (useCloud.getState().dirty) e.preventDefault();
   });
 
   await initialSync();
   setInterval(() => void poll(), POLL_MS);
 }
+

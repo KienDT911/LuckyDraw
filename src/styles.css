@@ -511,6 +511,14 @@ textarea.input {
 button.sync-badge {
   cursor: pointer;
 }
+.save-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.save-group .btn-primary {
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
 .sync-badge.ok {
   color: var(--ok);
   background: var(--ok-soft);
@@ -2027,6 +2035,9 @@ button.sync-badge {
 
 @media (max-width: 900px) {
   .sync-badge span {
+    display: none;
+  }
+  .save-group .btn:not(.btn-primary) {
     display: none;
   }
 }
